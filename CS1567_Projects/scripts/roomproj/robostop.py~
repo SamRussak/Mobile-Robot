@@ -1,0 +1,69 @@
+
+#!/usr/bin/env python
+import sys
+import roslib
+import rospy
+import cv2
+import copy
+import math
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+from cmvision.msg import Blobs, Blob
+from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Empty
+from kobuki_msgs.msg import BumperEvent
+from struct import *
+
+pub = rospy.Publisher("kobuki_command", Twist, queue_size=10)
+command = Twist()
+
+depthData = Image()
+isDepthReady = False
+
+degree = 0
+x = 0
+y = 0
+
+def depthCallback(data):
+    global depthData, isDepthReady
+    depthData = data
+    isDepthReady = True
+
+def main():
+    global depthData, isDepthReady, command, pub
+    rospy.init_node('depth_example', anonymous=True)
+    rospy.Subscriber("/camera/depth/image", Image, depthCallback, queue_size=10)
+    command.linear.x = .3
+    pub.publish(command)
+    print 'ha\n'
+    forwardSpeed = command.linear.x
+    angularSpeed = command.angular.z
+    while not isDepthReady:
+        pass
+
+    while not rospy.is_shutdown():
+        step = depthData.step
+        midX = 320
+        midY = 240
+        min = 20
+        for x in range(0, 640):
+            for y in range(190,240):
+                offset = (y * step) + (x * 4)
+                (dist,) = unpack('f', depthData.data[offset] + depthData.data[offset+1] + depthData.data[offset+2] + depthData.data[$
+                if (dist < min):
+                    min = dist 
+        if min < 0.8 and (command.linear.x != 0 and command.angular.x != 0):
+            forwardSpeed = command.linear.x
+            angularSpeed = command.angular.z
+            command.linear.x = 0
+            command.angular.z = 0
+            pub.publish(command)
+        elif min > 0.8:
+            command.linear.x = forwardSpeed
+            command.angular.z = angularSpeed
+            pub.publish(command)
+if __name__ == '__main__':
+    main()
+
